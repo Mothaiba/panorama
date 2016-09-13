@@ -34,13 +34,31 @@ def sidest_matches(img1, keypoints1, img2, keypoints2, matches, n_nearest, leftm
 
     return new_matches
 
+def concatenate(output_img, img1, rows1, cols1, img2, rows2, cols2, x_diff, y_diff):
+
+    fade_length = int(cols2 * 0.0) # 1% leftmost of img2 will fade gradually
+
+    for j in range(fade_length):
+        trans_deg = 1. * j / fade_length
+        for i in range(rows2):
+            img2[i, j, :] = np.array((img2[i, j, :] * trans_deg + img1[i - x_diff, j - y_diff, :] * (1 - trans_deg))).astype(int)
+
+
+    if x_diff > 0:
+        output_img[x_diff : (x_diff + rows1), 0 : cols1, :] = img1
+        output_img[0 : rows2, (-y_diff) : (-y_diff + cols2), :] = img2
+    else:
+        output_img[0 : rows1, 0 : cols1, :] = img1
+        output_img[(-x_diff) : (-x_diff + rows2), (-y_diff) : (-y_diff + cols2), :] = img2
+
+    return output_img
 
 def draw_matches(img1, keypoints1, img2, keypoints2, matches):
     rows1, cols1 = img1.shape[:2]
     rows2, cols2 = img2.shape[:2]
 
     # Create a new output image that concatenates the two images together
-    output_img = np.zeros((max([rows1,rows2]), cols1+cols2, 3), dtype='uint8')
+    output_img = np.zeros((max([rows1,rows2]), cols1+cols2, 4), dtype='uint8')
     output_img[:rows1, :cols1, :] = img1
     output_img[:rows2, cols1:cols1+cols2, :] = img2
 
@@ -96,16 +114,11 @@ def stitch_images(img1, keypoints1, img2, keypoints2, matches):
 
     print 'stitched image: (nrows, ncols) = ' + '(' + str(nrow) + ', ' + str(ncol) + ')'
 
-    output_img = np.zeros((nrow, ncol, 3), dtype='uint8')
+    output_img = np.zeros((nrow, ncol, 4), dtype='uint8')
 
-    if x_diff > 0:
-        output_img[x_diff : (x_diff + rows1), 0 : cols1, :] = img1
-        output_img[0 : rows2, (-y_diff) : (-y_diff + cols2), :] = img2
-    else:
-        output_img[0 : rows1, 0 : cols1, :] = img1
-        output_img[(-x_diff) : (-x_diff + rows2), (-y_diff) : (-y_diff + cols2), :] = img2
+    return concatenate(output_img, img1, rows1, cols1, img2, rows2, cols2, x_diff, y_diff)
 
-    return output_img
+
 
 if __name__=='__main__':
 
@@ -150,9 +163,14 @@ if __name__=='__main__':
     # Initialize ORB detector
     orb = cv2.ORB_create()
 
-    img1 = imutils.resize(cv2.imread(_images[0]), height=400)
+    img = imutils.resize(cv2.imread(_images[0], -1), height=400)
+    img1 = np.full((img.shape[0], img.shape[1], 4), 255, dtype='uint8')
+    img1[:,:,:3] = img
+
     for i in range(1, len(_images)):
-        img2 = imutils.resize(cv2.imread(_images[i]), height=400)
+        img = imutils.resize(cv2.imread(_images[i], -1), height=400)
+        img2 = np.full((img.shape[0], img.shape[1], 4), 255, dtype='uint8')
+        img2[:, :, :3] = img
 
         # Extract keypoints and descriptors
         keypoints1, descriptors1 = orb.detectAndCompute(img1, None)
