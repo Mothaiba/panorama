@@ -7,7 +7,7 @@ import cv2
 from os import listdir, mkdir
 from os.path import isfile, join, exists
 
-def nearest_matches(img1, keypoints1, img2, keypoints2, matches, n_nearest):
+def sidest_matches(img1, keypoints1, img2, keypoints2, matches, n_nearest, leftmost = False):
     rows1, cols1 = img1.shape[:2]
     rows2, cols2 = img2.shape[:2]
 
@@ -28,7 +28,9 @@ def nearest_matches(img1, keypoints1, img2, keypoints2, matches, n_nearest):
             'pos' : pos
         })
 
-    new_matches = sorted(new_matches, key=lambda x: x['pos'])[:n_nearest]
+
+    new_matches = sorted(new_matches, key=lambda x: x['pos'], reverse=leftmost)[:n_nearest]
+
 
     return new_matches
 
@@ -166,12 +168,12 @@ if __name__=='__main__':
         matches = sorted(matches, key = lambda x:x.distance)
 
         # From the most similar matches, take the rightmost matches
-        matches = nearest_matches(img1, keypoints1, img2, keypoints2, matches[:99], 30)
+        matches = sidest_matches(img1, keypoints1, img2, keypoints2, matches[:99], 30, leftmost=True)
 
         # Draw first 'n' matches
-        img3 = draw_matches(img1, keypoints1, img2, keypoints2, matches)
-        cv2.imshow('Matched keypoints', img3)
-        cv2.waitKey()
+        # img3 = draw_matches(img1, keypoints1, img2, keypoints2, matches)
+        # cv2.imshow('Matched keypoints', img3)
+        # cv2.waitKey()
         img1 = stitch_images(img1, keypoints1, img2, keypoints2, matches)
 
     # cv2.imshow('Matched keypoints', img3)
