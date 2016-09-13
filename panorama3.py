@@ -7,6 +7,32 @@ import cv2
 from os import listdir, mkdir
 from os.path import isfile, join, exists
 
+def nearest_matches(img1, keypoints1, img2, keypoints2, matches, n_nearest):
+    rows1, cols1 = img1.shape[:2]
+    rows2, cols2 = img2.shape[:2]
+
+    new_matches = []
+
+    for match in matches:
+        img1_idx = match.queryIdx
+        img2_idx = match.trainIdx
+
+        (x1, y1) = keypoints1[img1_idx].pt
+        (x2, y2) = keypoints2[img2_idx].pt
+
+        pos = (cols1 - x1) + (cols2 - x2)
+
+        new_matches.append({
+            'queryIdx' : img1_idx,
+            'trainIdx' : img2_idx,
+            'pos' : pos
+        })
+
+    new_matches = sorted(new_matches, key=lambda x: x['pos'])[:n_nearest]
+
+    return new_matches
+
+
 def draw_matches(img1, keypoints1, img2, keypoints2, matches):
     rows1, cols1 = img1.shape[:2]
     rows2, cols2 = img2.shape[:2]
@@ -19,8 +45,8 @@ def draw_matches(img1, keypoints1, img2, keypoints2, matches):
     # Draw connecting lines between matching keypoints
     for match in matches:
         # Get the matching keypoints for each of the images
-        img1_idx = match.queryIdx
-        img2_idx = match.trainIdx
+        img1_idx = match['queryIdx']
+        img2_idx = match['trainIdx']
 
         (x1, y1) = keypoints1[img1_idx].pt
         (x2, y2) = keypoints2[img2_idx].pt
@@ -39,21 +65,14 @@ def stitch_images(img1, keypoints1, img2, keypoints2, matches):
     rows1, cols1 = img1.shape[:2]
     rows2, cols2 = img2.shape[:2]
 
-    # Create a new output image that concatenates the two images together
-    # output_img = np.zeros((max([rows1,rows2]), cols1+cols2, 3), dtype='uint8')
-    # output_img[:rows1, :cols1, :] = np.dstack([img1, img1, img1])
-    # output_img[:rows2, cols1:cols1+cols2, :] = np.dstack([img2, img2, img2])
-    # output_img[:rows1, :cols1, :] = img1
-    # output_img[:rows2, cols1:cols1 + cols2, :] = img2
-
     x_diff = 0
     y_diff = 0
 
     # Draw connecting lines between matching keypoints
     for match in matches:
         # Get the matching keypoints for each of the images
-        img1_idx = match.queryIdx
-        img2_idx = match.trainIdx
+        img1_idx = match['queryIdx']
+        img2_idx = match['trainIdx']
 
         (x1, y1) = keypoints1[img1_idx].pt
         (x2, y2) = keypoints2[img2_idx].pt
@@ -83,14 +102,6 @@ def stitch_images(img1, keypoints1, img2, keypoints2, matches):
     else:
         output_img[0 : rows1, 0 : cols1, :] = img1
         output_img[(-x_diff) : (-x_diff + rows2), (-y_diff) : (-y_diff + cols2), :] = img2
-
-        # # Draw a small circle at both co-ordinates and then draw a line
-        # radius = 4
-        # colour = (0,255,0)   # green
-        # thickness = 1
-        # cv2.circle(output_img, (int(x1),int(y1)), radius, colour, thickness)
-        # cv2.circle(output_img, (int(x2)+cols1,int(y2)), radius, colour, thickness)
-        # cv2.line(output_img, (int(x1),int(y1)), (int(x2)+cols1,int(y2)), colour, thickness)
 
     return output_img
 
@@ -154,10 +165,14 @@ if __name__=='__main__':
         # Sort them in the order of their distance
         matches = sorted(matches, key = lambda x:x.distance)
 
+        # From the most similar matches, take the rightmost matches
+        matches = nearest_matches(img1, keypoints1, img2, keypoints2, matches[:99], 30)
+
         # Draw first 'n' matches
-        print 'There are ' + str(len(matches)) + ' matched points'
-        # img3 = draw_matches(img1, keypoints1, img2, keypoints2, matches[:30])
-        img1 = stitch_images(img1, keypoints1, img2, keypoints2, matches[:30])
+        img3 = draw_matches(img1, keypoints1, img2, keypoints2, matches)
+        cv2.imshow('Matched keypoints', img3)
+        cv2.waitKey()
+        img1 = stitch_images(img1, keypoints1, img2, keypoints2, matches)
 
     # cv2.imshow('Matched keypoints', img3)
     cv2.imshow('Panorama', img1)

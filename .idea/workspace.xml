@@ -14,7 +14,7 @@
   </component>
   <component name="CoverageDataManager">
     <SUITE FILE_PATH="coverage/StitchImages$stitch.coverage" NAME="stitch Coverage Results" MODIFIED="1473735049807" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/StitchImages$panorama3.coverage" NAME="panorama3 Coverage Results" MODIFIED="1473748646605" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
+    <SUITE FILE_PATH="coverage/StitchImages$panorama3.coverage" NAME="panorama3 Coverage Results" MODIFIED="1473751977940" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
   <component name="CreatePatchCommitExecutor">
     <option name="PATCH_PATH" value="" />
@@ -38,11 +38,11 @@
       <file leaf-file-name="panorama3.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/panorama3.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="402">
-              <caret line="159" column="76" selection-start-line="159" selection-start-column="76" selection-end-line="159" selection-end-column="76" />
+            <state relative-caret-position="-44">
+              <caret line="47" column="36" selection-start-line="47" selection-start-column="36" selection-end-line="47" selection-end-column="36" />
               <folding>
                 <element signature="e#0#10#0" expanded="true" />
-                <element signature="e#3370#3477#0" expanded="false" />
+                <element signature="e#3191#3298#0" expanded="false" />
               </folding>
             </state>
           </provider>
@@ -528,11 +528,11 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/panorama3.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="402">
-          <caret line="159" column="76" selection-start-line="159" selection-start-column="76" selection-end-line="159" selection-end-column="76" />
+        <state relative-caret-position="-44">
+          <caret line="47" column="36" selection-start-line="47" selection-start-column="36" selection-end-line="47" selection-end-column="36" />
           <folding>
             <element signature="e#0#10#0" expanded="true" />
-            <element signature="e#3370#3477#0" expanded="false" />
+            <element signature="e#3191#3298#0" expanded="false" />
           </folding>
         </state>
       </provider>
