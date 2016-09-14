@@ -36,11 +36,12 @@ def sidest_matches(img1, keypoints1, img2, keypoints2, matches, n_nearest, leftm
 
 def concatenate(output_img, img1, rows1, cols1, img2, rows2, cols2, x_diff, y_diff):
 
-    fade_length = int(cols2 * 0.0) # 1% leftmost of img2 will fade gradually
+    fade_length = int(cols2 * 0.2) # 1% leftmost of img2 will fade gradually
 
+    rowsValid = min(rows2, rows1 + x_diff)
     for j in range(fade_length):
         trans_deg = 1. * j / fade_length
-        for i in range(rows2):
+        for i in range(rowsValid):
             img2[i, j, :] = np.array((img2[i, j, :] * trans_deg + img1[i - x_diff, j - y_diff, :] * (1 - trans_deg))).astype(int)
 
 
@@ -110,14 +111,17 @@ def stitch_images(img1, keypoints1, img2, keypoints2, matches):
         nrow = rows1 + x_diff
     else:
         nrow = max(rows1, rows2 - x_diff)
-    ncol = cols2 - y_diff
+    ncol = cols2 + max(0, - y_diff)
+
+    if ncol < cols1:
+        print '>> >> skip an image << <<'
+        return img1
 
     print 'stitched image: (nrows, ncols) = ' + '(' + str(nrow) + ', ' + str(ncol) + ')'
 
     output_img = np.zeros((nrow, ncol, 4), dtype='uint8')
 
     return concatenate(output_img, img1, rows1, cols1, img2, rows2, cols2, x_diff, y_diff)
-
 
 
 if __name__=='__main__':
@@ -149,8 +153,7 @@ if __name__=='__main__':
     # cv2.imshow('Panorama', img4)
     # cv2.waitKey()
 
-
-    _imageDirectory = '/Users/tungphung/Documents/images7/'
+    _imageDirectory = '/Users/tungphung/Documents/images9/'
     _imageList = [f for f in listdir(_imageDirectory)]
     _images = [join(_imageDirectory, f) for f in _imageList \
                if isfile(join(_imageDirectory, f)) and not f.startswith('.')]
@@ -167,7 +170,7 @@ if __name__=='__main__':
     img1 = np.full((img.shape[0], img.shape[1], 4), 255, dtype='uint8')
     img1[:,:,:3] = img
 
-    for i in range(1, len(_images)):
+    for i in range(1, len(_images), 15):
         img = imutils.resize(cv2.imread(_images[i], -1), height=400)
         img2 = np.full((img.shape[0], img.shape[1], 4), 255, dtype='uint8')
         img2[:, :, :3] = img
@@ -194,6 +197,7 @@ if __name__=='__main__':
         # cv2.waitKey()
         img1 = stitch_images(img1, keypoints1, img2, keypoints2, matches)
 
+    cv2.imwrite('Panorama_lab_3_pics.png', img1)
     # cv2.imshow('Matched keypoints', img3)
     cv2.imshow('Panorama', img1)
     cv2.waitKey()
