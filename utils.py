@@ -1,0 +1,27 @@
+import imutils
+import cv2
+import numpy as np
+
+from transform import *
+
+def load_image(_img, to_be_domed = False, to_be_fisheye = False, to_be_expanded = False, to_be_diminished = False):
+    img = imutils.resize(cv2.imread(_img, -1), height=400)
+
+    if img.shape[2] == 3:
+        img1 = np.full((img.shape[0], img.shape[1], 4), 255, dtype='uint8')
+        img1[:, :, :3] = img
+        img = img1
+
+    if to_be_domed:
+        img = to_dome_2(img, 0.8, 0.2)
+
+    if to_be_fisheye:
+        img = to_fish_eye(img, 0.3)
+
+    if to_be_expanded:
+        img = to_expand(img, 1.5)
+
+    if to_be_diminished:
+        img = to_diminish(img, 1.6)
+
+    return img

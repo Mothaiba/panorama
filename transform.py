@@ -1,0 +1,142 @@
+import numpy as np
+import cv2
+import imutils
+
+# import utils.load_image
+
+def to_dome(img, _b):
+    rows, cols = img.shape[:2]
+    a = cols / 2
+    b = int(_b * a)
+
+    print 'rows, cols = ' + str(rows), ', ', str(cols)
+    print 'a, b = ' + str(a), ', ', str(b)
+
+    dome_rows = rows + b
+    dome = np.full((dome_rows, cols, 4), 255, dtype='uint8')
+    diff_centre = lambda x : x - a if x > a else a - x
+
+    for j in range (cols):
+        add_height = int(((1. - (1. * diff_centre(j) / a) ** 2) * (b ** 2)) ** 0.5)
+        # print dome_rows - add_height - rows, rows
+        dome[(dome_rows - add_height - rows) : (dome_rows - add_height), j, :3] = img[:, j, :3]
+
+    return dome
+
+def to_dome_2(img, _major, _minor):
+    rows, cols = img.shape[:2]
+    a = cols / 2
+    major = int(_major * a)
+    minor = int(_minor * a)
+
+    print 'rows, cols = ' + str(rows), ', ', str(cols)
+    print 'a, major, minor = ' + str(a), ', ', str(major), ', ', str(minor)
+
+    dome_rows = rows + major
+    dome = np.zeros((dome_rows, cols, 4), dtype='uint8')
+    dome[:, :, 3] = 255
+    diff_centre = lambda x: x - a if x > a else a - x
+
+    for j in range(cols):
+        diff = (1. - (1. * diff_centre(j) / a) ** 2)
+        # print 'diff = ', diff
+        major_add = int((diff * (major ** 2)) ** 0.5)
+        minor_add = int((diff * (minor ** 2)) ** 0.5)
+
+        # print 'major_add, minor_add = ', major_add, minor_add
+
+        ratio = 1 + 1. * (major_add - minor_add) / rows
+
+        # print 'ratio: ', str(ratio)
+
+        min_row_in_consider = dome_rows - major_add - rows
+        for i in range(dome_rows - major_add - rows, dome_rows - minor_add):
+            dome[i, j, :] = img[int((i - min_row_in_consider) / ratio), j, :]
+    return dome
+
+def to_fish_eye(img, _b):
+    rows, cols = img.shape[:2]
+    a = cols / 2
+    b = int(_b * a)
+
+    print 'rows, cols = ' + str(rows), ', ', str(cols)
+    print 'a, b = ' + str(a), ', ', str(b)
+
+    dome_rows = rows + b + b
+    dome = np.zeros((dome_rows, cols, 4), dtype='uint8')
+    dome[:, :, 3] = 255
+    diff_centre = lambda x : x - a if x > a else a - x
+
+    for j in range (cols):
+        add_height = int(((1. - (1. * diff_centre(j) / a) ** 2) * (b ** 2)) ** 0.5)
+        ratio = 1 + (add_height * 2. / rows)
+
+        min_row_in_consider = b - add_height
+        for i in range(b - add_height, rows + b + add_height):
+            dome[i, j, :] = img[int((i - min_row_in_consider) / ratio), j, :]
+
+    return dome
+
+# if __name__ == '__main__':
+#     # tmp_img = imutils.resize(cv2.imread('Panorama_lab_3_pics.png', -1), height=400)
+#     # img = np.full((tmp_img.shape[0], tmp_img.shape[1], 4), 255, dtype='uint8')
+#     # img[:, :, :3] = tmp_img
+#     img = utils.load_image('/Users/tungphung/Documents/images8/P_20160913_100320.jpg')
+#
+#     # dome = to_dome(img, 1.5)
+#     # cv2.imshow('Dome', dome)
+#
+#     dome_2 = to_dome_2(img, 0.8, 0.1)
+#     cv2.imshow('Dome 2', dome_2)
+#
+#     cv2.waitKey(0)
+
+def to_expand(img, deg) :
+    rows, cols = img.shape[:2]
+    outrows = int(deg * rows)
+    base = int((outrows - rows) / 2)
+
+    print 'base =', base
+
+    result = np.zeros((outrows, cols, 4), dtype='uint8')
+
+    for j in range(cols):
+        add_height = int(base * j / cols)
+        ratio = 1. + 2. * base * j / cols / rows
+
+        # print base, add_height, rows
+        min_consider = base - add_height
+        for i in range(min_consider, base + rows + add_height):
+            result[i, j, :] = img[int((i - min_consider) / ratio), j, :]
+
+    return result
+
+def to_diminish(img, deg) :
+    rows, cols = img.shape[:2]
+    outrows = rows
+    base = int((rows - (rows / deg)) / 2)
+
+    result = np.zeros((outrows, cols, 4), dtype='uint8')
+
+    for j in range(cols):
+        subtract_height = int(base * j / cols)
+        ratio = 1. - 2. * base * j / cols / rows
+
+        # print base, add_height, rows
+        min_consider = subtract_height
+        for i in range(min_consider, rows - min_consider - 1):
+            result[i, j, :] = img[int((i - min_consider) / ratio), j, :]
+
+    return result
+
+if __name__ == '__main__':
+    img = imutils.resize(cv2.imread('/Users/tungphung/Documents/images8/P_20160913_100320.jpg', -1), height=400)
+
+    if img.shape[2] == 3:
+        img1 = np.full((img.shape[0], img.shape[1], 4), 255, dtype='uint8')
+        img1[:, :, :3] = img
+        img = img1
+
+    img = to_diminish(img, 1.5)
+    cv2.imshow('', img)
+    cv2.waitKey(0)

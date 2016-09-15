@@ -7,6 +7,9 @@ import cv2
 from os import listdir, mkdir
 from os.path import isfile, join, exists
 
+from transform import to_dome_2
+from utils import load_image
+
 def sidest_matches(img1, keypoints1, img2, keypoints2, matches, n_nearest, leftmost = False):
     rows1, cols1 = img1.shape[:2]
     rows2, cols2 = img2.shape[:2]
@@ -36,7 +39,7 @@ def sidest_matches(img1, keypoints1, img2, keypoints2, matches, n_nearest, leftm
 
 def concatenate(output_img, img1, rows1, cols1, img2, rows2, cols2, x_diff, y_diff):
 
-    fade_length = int(cols2 * 0.2) # 1% leftmost of img2 will fade gradually
+    fade_length = int(cols2 * 0.05) # % leftmost of img2 will fade gradually
 
     rowsValid = min(rows2, rows1 + x_diff)
     for j in range(fade_length):
@@ -126,34 +129,7 @@ def stitch_images(img1, keypoints1, img2, keypoints2, matches):
 
 if __name__=='__main__':
 
-    # img1 = imutils.resize(cv2.imread('/Users/tungphung/Documents/images7/P_20160913_100320.jpg'), height=400)
-    # img2 = imutils.resize(cv2.imread('/Users/tungphung/Documents/images7/P_20160913_100323.jpg'), height=400)
-    # # Initialize ORB detector
-    # orb = cv2.ORB_create()
-    #
-    # # Extract keypoints and descriptors
-    # keypoints1, descriptors1 = orb.detectAndCompute(img1, None)
-    # keypoints2, descriptors2 = orb.detectAndCompute(img2, None)
-    #
-    # # Create Brute Force matcher object
-    # bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-    #
-    # # Match descriptors
-    # matches = bf.match(descriptors1, descriptors2)
-    #
-    # # Sort them in the order of their distance
-    # matches = sorted(matches, key = lambda x:x.distance)
-    #
-    # # Draw first 'n' matches
-    # print 'There are ' + str(len(matches)) + ' matched points'
-    # img3 = draw_matches(img1, keypoints1, img2, keypoints2, matches[:30])
-    # img4 = stitch_images(img1, keypoints1, img2, keypoints2, matches[:30])
-    #
-    # cv2.imshow('Matched keypoints', img3)
-    # cv2.imshow('Panorama', img4)
-    # cv2.waitKey()
-
-    _imageDirectory = '/Users/tungphung/Documents/images9/'
+    _imageDirectory = '/Users/tungphung/Documents/images8/'
     _imageList = [f for f in listdir(_imageDirectory)]
     _images = [join(_imageDirectory, f) for f in _imageList \
                if isfile(join(_imageDirectory, f)) and not f.startswith('.')]
@@ -166,14 +142,10 @@ if __name__=='__main__':
     # Initialize ORB detector
     orb = cv2.ORB_create()
 
-    img = imutils.resize(cv2.imread(_images[0], -1), height=400)
-    img1 = np.full((img.shape[0], img.shape[1], 4), 255, dtype='uint8')
-    img1[:,:,:3] = img
+    img1 = load_image(_images[0], to_be_fisheye=False, to_be_domed=False, to_be_expanded=False)
 
-    for i in range(1, len(_images), 15):
-        img = imutils.resize(cv2.imread(_images[i], -1), height=400)
-        img2 = np.full((img.shape[0], img.shape[1], 4), 255, dtype='uint8')
-        img2[:, :, :3] = img
+    for i in range(1, len(_images), 1):
+        img2 = load_image(_images[i], to_be_fisheye=False, to_be_domed=False, to_be_expanded=False)
 
         # Extract keypoints and descriptors
         keypoints1, descriptors1 = orb.detectAndCompute(img1, None)
@@ -184,6 +156,8 @@ if __name__=='__main__':
 
         # Match descriptors
         matches = bf.match(descriptors1, descriptors2)
+
+        print 'There are', str(len(matches)), 'matches!'
 
         # Sort them in the order of their distance
         matches = sorted(matches, key = lambda x:x.distance)
@@ -197,7 +171,7 @@ if __name__=='__main__':
         # cv2.waitKey()
         img1 = stitch_images(img1, keypoints1, img2, keypoints2, matches)
 
-    cv2.imwrite('Panorama_lab_3_pics.png', img1)
+    # cv2.imwrite('Panorama_dome_lab_3_pics.png', img1)
     # cv2.imshow('Matched keypoints', img3)
     cv2.imshow('Panorama', img1)
     cv2.waitKey()
