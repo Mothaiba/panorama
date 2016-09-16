@@ -33,52 +33,62 @@ class Stitcher:
         # otherwise, apply a perspective warp to stitch the images
         # together
         (matches, H, status) = M
-        # result = cv2.warpPerspective(imageA, H,
-        #                              (imageA.shape[1] + imageB.shape[1], imageA.shape[0]))
 
-        result = cv2.warpPerspective(imageA, H,
-                                     (imageA.shape[1] + 400, int(imageA.shape[0] + 20)),
+        right_image_wrapped = cv2.warpPerspective(imageA, H,
+                                     (imageA.shape[1] + imageB.shape[1] + 500, int(imageA.shape[0] + 100)),
                                      borderMode=cv2.BORDER_CONSTANT, borderValue=0)
 
-        # result = cv2.warpPerspective(imageA, H,
-        #                              (imageA.shape[1] + 20, int(imageA.shape[0] + 15)))
+        # paste the left image to the right one
+        result = self.paste(imageB, right_image_wrapped)
 
-        print 'imageA size: ', imageA.shape[0], ' ', imageA.shape[1]
-        print 'imageB size: ', imageB.shape[0], ' ', imageB.shape[1]
-        print '\n'
+        # trim some columns
+        result = self.trimSurplusCols(result)
 
-        # cv2.imshow('raw merge', result)
-        # cv2.waitKey(0)
+        return result
 
+    def paste(self, left_img, right_img):
         # make the left image fade gradually on the right side
-        fade_min = imageB.shape[1] - int(imageB.shape[1] * .3)  # % leftmost of img2 will fade gradually
-        fade_length = imageB.shape[1] - fade_min
+        fade_min = left_img.shape[1] - int(left_img.shape[1] * .2)  # % rightmost of left img will fade gradually
+        fade_length = left_img.shape[1] - fade_min
 
         print 'fade_min, fade_length = ', fade_min, fade_length
 
-        # result[0:imageB.shape[0], 0:imageB.shape[1]] = imageB
-        for j in range(imageB.shape[1]):
+        for j in range(left_img.shape[1]):
+
             if j >= fade_min:
-                a_value = (1. * (imageB.shape[1] - j) / fade_length)
+                a_value = (1. * (left_img.shape[1] - j) / fade_length)
             else:
                 a_value = 1
-            for i in range (imageB.shape[0]):
-                if imageB[i, j, 3] > 0:
-                    result[i, j, :3] = imageB[i, j, :3] * a_value + (result[i, j, :3] * (1 - a_value)).astype(int)
-                    result[i, j, 3] = 255
+            for i in range (left_img.shape[0]):
+                if left_img[i, j, 3] > 0:
+                    right_img[i, j, :3] = left_img[i, j, :3] * a_value + (right_img[i, j, :3] * (1 - a_value)).astype(int)
+                    right_img[i, j, 3] = 255
 
+        return right_img
 
-        # check to see if the keypoint matches should be visualized
-        if showMatches:
-            vis = self.drawMatches(imageA, imageB, kpsA, kpsB, matches,
-                                   status)
+    def trimSurplusCols(self, img):
+        meaningful_threshold = 0.5
 
-            # return a tuple of the stitched image and the
-            # visualization
-            return (result, vis)
+        for j in range(imageB.shape[1], img.shape[1]):
+            from_row = img.shape[0]
+            for i in range(img.shape[0]):
+                if img[i, j, 0] != 0:
+                    from_row = i
+                    break
 
-        # return the stitched image
-        return result
+            to_row = 0
+            for i in range(img.shape[0] - 1, -1, -1):
+                if img[i, j, 0] != 0:
+                    to_row = i
+                    break
+
+            if 1. * (to_row - from_row) / img.shape[0] < meaningful_threshold:
+                print from_row, ',', to_row
+                print 'length:', img.shape[1], ',', 'cut-off to', j, 'because only', str(1. * (to_row - from_row) / img.shape[0]), 'percent meaningful'
+                img = img[:, :j, :]
+                break
+
+        return img
 
     def detectAndDescribe(self, image):
         # convert the image to grayscale
@@ -107,8 +117,7 @@ class Stitcher:
         # return a tuple of keypoints and features
         return (kps, features)
 
-    def matchKeypoints(self, kpsA, kpsB, featuresA, featuresB,
-                       ratio, reprojThresh):
+    def matchKeypoints(self, kpsA, kpsB, featuresA, featuresB, ratio, reprojThresh):
         # compute the raw matches and initialize the list of actual
         # matches
         matcher = cv2.DescriptorMatcher_create("BruteForce")
@@ -291,14 +300,22 @@ if __name__ == '__main__':
 
     imageAB = fill_rec(imageAB, imageAB.shape[0])
 
-    cv2.imshow('Pano AB', imageAB)
+    cv2.imshow('Pano AB after fill', imageAB)
 
-    # imageC = to_diminish_2(imageC, deg)
-    # imageCD = stitcher.stitch([imageC, imageD])
-    # cv2.imshow('Pano CD', imageCD)
-    #
-    # imageAB = to_diminish_2(imageAB, deg * deg)
-    # imageABCD = stitcher.stitch([imageAB, imageCD])
-    # cv2.imshow('Pano ABCD', imageABCD)
+    imageC = to_diminish_2(imageC, deg)
+    imageCD = stitcher.stitch([imageC, imageD])
+    cv2.imshow('Pano CD', imageCD)
+
+    imageCD = fill_rec(imageCD, imageCD.shape[0])
+
+    cv2.imshow('Pano CD after fill', imageCD)
+
+    imageAB = to_diminish_2(imageAB, 0.8)
+    imageABCD = stitcher.stitch([imageAB, imageCD])
+    cv2.imshow('Pano ABCD', imageABCD)
+
+    imageABCD = fill_rec(imageABCD, imageABCD.shape[0])
+
+    cv2.imshow('Pano ABCD after fill', imageABCD)
 
     cv2.waitKey(0)

@@ -142,26 +142,26 @@ def to_diminish_2(img, deg) :
     src_points = np.float32([[0, 0], [cols - 1, 0], [0, rows - 1], [cols - 1, rows - 1]])
     dst_points = np.float32([[0, 0], [cols - 1, int((1. - deg) * rows)], [0, rows - 1], [cols - 1, int(rows * deg)]])
     projective_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
-    img_output = cv2.warpPerspective(img, projective_matrix, (cols, rows))
+    img_output = cv2.warpPerspective(img, projective_matrix, (cols, rows), borderValue=0)
 
     return img_output
 
-def to_diminish_3(img, deg) :
-
-    if deg == 1:
-        return img
-    if deg > 1:
-        print 'deg should be <= 1'
-        return None
-
-    rows, cols = img.shape[:2]
-
-    src_points = np.float32([[0, 0], [cols - 1, 0], [0, rows - 1], [cols - 1, rows - 1]])
-    dst_points = np.float32([[0, 0], [int(cols * deg), int((1. - deg) * rows)], [0, rows - 1], [int(cols * deg), int(rows * deg)]])
-    projective_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
-    img_output = cv2.warpPerspective(img, projective_matrix, (int(cols * deg) + 1, rows))
-
-    return img_output
+# def to_diminish_3(img, deg) :
+#
+#     if deg == 1:
+#         return img
+#     if deg > 1:
+#         print 'deg should be <= 1'
+#         return None
+#
+#     rows, cols = img.shape[:2]
+#
+#     src_points = np.float32([[0, 0], [cols - 1, 0], [0, rows - 1], [cols - 1, rows - 1]])
+#     dst_points = np.float32([[0, 0], [int(cols * deg), int((1. - deg) * rows)], [0, rows - 1], [int(cols * deg), int(rows * deg)]])
+#     projective_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
+#     img_output = cv2.warpPerspective(img, projective_matrix, (int(cols * deg) + 1, rows))
+#
+#     # return img_output
 
 def fill_rec(img, final_rows):
     rows, cols = img.shape[:2]
@@ -171,19 +171,21 @@ def fill_rec(img, final_rows):
     output_img = np.full((final_rows, cols, 4), 255, dtype='uint8')
 
     for j in range(cols):
+        from_row = rows
         for i in range(0, rows):
             if img[i, j, 0] != 0:
                 from_row = i
                 break
+        to_row = 0
         for i in range(rows - 1, -1, -1):
-            if img[i, j, 0] != 255:
+            if img[i, j, 0] != 0:
                 to_row = i
                 break
         if from_row > to_row:
             to_col = j - 1
             break
 
-        print from_row, to_row
+        # print from_row, to_row
 
         height = to_row - from_row + 1
         deg = 1. * height / final_rows
@@ -205,6 +207,6 @@ if __name__ == '__main__':
         img1[:, :, :3] = img
         img = img1
 
-    img = to_diminish_3(img, .7)
+    img = to_diminish_2(img, .7)
     cv2.imshow('', img)
     cv2.waitKey(0)
