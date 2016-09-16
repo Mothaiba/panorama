@@ -129,6 +129,74 @@ def to_diminish(img, deg) :
 
     return result
 
+def to_diminish_2(img, deg) :
+
+    if deg == 1:
+        return img
+    if deg > 1:
+        print 'deg should be <= 1'
+        return None
+
+    rows, cols = img.shape[:2]
+
+    src_points = np.float32([[0, 0], [cols - 1, 0], [0, rows - 1], [cols - 1, rows - 1]])
+    dst_points = np.float32([[0, 0], [cols - 1, int((1. - deg) * rows)], [0, rows - 1], [cols - 1, int(rows * deg)]])
+    projective_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
+    img_output = cv2.warpPerspective(img, projective_matrix, (cols, rows))
+
+    return img_output
+
+def to_diminish_3(img, deg) :
+
+    if deg == 1:
+        return img
+    if deg > 1:
+        print 'deg should be <= 1'
+        return None
+
+    rows, cols = img.shape[:2]
+
+    src_points = np.float32([[0, 0], [cols - 1, 0], [0, rows - 1], [cols - 1, rows - 1]])
+    dst_points = np.float32([[0, 0], [int(cols * deg), int((1. - deg) * rows)], [0, rows - 1], [int(cols * deg), int(rows * deg)]])
+    projective_matrix = cv2.getPerspectiveTransform(src_points, dst_points)
+    img_output = cv2.warpPerspective(img, projective_matrix, (int(cols * deg) + 1, rows))
+
+    return img_output
+
+def fill_rec(img, final_rows):
+    rows, cols = img.shape[:2]
+
+    to_col = cols
+
+    output_img = np.full((final_rows, cols, 4), 255, dtype='uint8')
+
+    for j in range(cols):
+        for i in range(0, rows):
+            if img[i, j, 0] != 0:
+                from_row = i
+                break
+        for i in range(rows - 1, -1, -1):
+            if img[i, j, 0] != 255:
+                to_row = i
+                break
+        if from_row > to_row:
+            to_col = j - 1
+            break
+
+        print from_row, to_row
+
+        height = to_row - from_row + 1
+        deg = 1. * height / final_rows
+
+        for i in range(0, final_rows):
+            output_img[i, j, :3] = img[int(i * deg) + from_row, j, :3]
+
+    output_img = output_img[:, :to_col, :]
+
+    return output_img
+
+
+
 if __name__ == '__main__':
     img = imutils.resize(cv2.imread('/Users/tungphung/Documents/images8/P_20160913_100320.jpg', -1), height=400)
 
@@ -137,6 +205,6 @@ if __name__ == '__main__':
         img1[:, :, :3] = img
         img = img1
 
-    img = to_diminish(img, 1.5)
+    img = to_diminish_3(img, .7)
     cv2.imshow('', img)
     cv2.waitKey(0)

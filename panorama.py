@@ -6,6 +6,7 @@ import os
 from os import listdir, mkdir
 from os.path import isfile, join, exists
 from utils import load_image
+from transform import *
 
 
 class Stitcher:
@@ -36,7 +37,8 @@ class Stitcher:
         #                              (imageA.shape[1] + imageB.shape[1], imageA.shape[0]))
 
         result = cv2.warpPerspective(imageA, H,
-                                     (imageA.shape[1] + 400, int(imageA.shape[0] + 200)))
+                                     (imageA.shape[1] + 400, int(imageA.shape[0] + 20)),
+                                     borderMode=cv2.BORDER_CONSTANT, borderValue=0)
 
         # result = cv2.warpPerspective(imageA, H,
         #                              (imageA.shape[1] + 20, int(imageA.shape[0] + 15)))
@@ -45,9 +47,26 @@ class Stitcher:
         print 'imageB size: ', imageB.shape[0], ' ', imageB.shape[1]
         print '\n'
 
-        cv2.imshow('raw merge', result)
+        # cv2.imshow('raw merge', result)
+        # cv2.waitKey(0)
 
-        result[0:imageB.shape[0], 0:imageB.shape[1]] = imageB
+        # make the left image fade gradually on the right side
+        fade_min = imageB.shape[1] - int(imageB.shape[1] * .3)  # % leftmost of img2 will fade gradually
+        fade_length = imageB.shape[1] - fade_min
+
+        print 'fade_min, fade_length = ', fade_min, fade_length
+
+        # result[0:imageB.shape[0], 0:imageB.shape[1]] = imageB
+        for j in range(imageB.shape[1]):
+            if j >= fade_min:
+                a_value = (1. * (imageB.shape[1] - j) / fade_length)
+            else:
+                a_value = 1
+            for i in range (imageB.shape[0]):
+                if imageB[i, j, 3] > 0:
+                    result[i, j, :3] = imageB[i, j, :3] * a_value + (result[i, j, :3] * (1 - a_value)).astype(int)
+                    result[i, j, 3] = 255
+
 
         # check to see if the keypoint matches should be visualized
         if showMatches:
@@ -169,7 +188,7 @@ if __name__ == '__main__':
     # cv2.imshow("Result", result)
     # cv2.waitKey(0)
 
-    _imageDirectory = '/Users/tungphung/Documents/images8/'
+    _imageDirectory = '/Users/tungphung/Documents/images5/'
     _imageList = [f for f in listdir(_imageDirectory)]
     _images = [join(_imageDirectory, f) for f in _imageList \
                if isfile(join(_imageDirectory, f)) and not f.startswith('.')]
@@ -241,11 +260,45 @@ if __name__ == '__main__':
     # cv2.imshow('Result', result)
     # cv2.waitKey(0)
 
-    imageB = load_image(_images[-1], to_be_diminished=True)
-    for i in range (len(_images) - 2, -1, -1):
-        imageA = load_image(_images[i], to_be_diminished=True)
-        imageB = stitcher.stitch([imageA, imageB], showMatches=False)
+    # # stitch CD, BCD, ABCD
+    # deg = 0.85
+    #
+    # imageB = load_image(_images[-1], to_be_diminished_2=False)
+    # for i in range (len(_images) - 2, -1, -1):
+    #     imageA = load_image(_images[i], to_be_diminished_2=False)
+    #     imageA = to_diminish_3(imageA, deg)
+    #     # imageB = to_diminish(imageB, 1.6)
+    #     cv2.imshow('image after Diminished', imageA)
+    #     imageB = stitcher.stitch([imageA, imageB], showMatches=False)
+    #
+    # # cv2.imwrite('30images.jpg', imageB)
+    #     cv2.imshow('Panorama', imageB)
+    #     cv2.waitKey()
+    #
+    #     deg = deg * 0.85
 
-    # cv2.imwrite('30images.jpg', imageB)
-    cv2.imshow('Something to show', imageB)
-    cv2.waitKey()
+    # stitch AB, CD and ABCD
+    deg = 0.85
+
+    imageA = load_image(_images[0])
+    imageB = load_image(_images[1])
+    imageC = load_image(_images[2])
+    imageD = load_image(_images[3])
+
+    imageA = to_diminish_2(imageA, deg)
+    imageAB = stitcher.stitch([imageA, imageB])
+    cv2.imshow('Pano AB', imageAB)
+
+    imageAB = fill_rec(imageAB, imageAB.shape[0])
+
+    cv2.imshow('Pano AB', imageAB)
+
+    # imageC = to_diminish_2(imageC, deg)
+    # imageCD = stitcher.stitch([imageC, imageD])
+    # cv2.imshow('Pano CD', imageCD)
+    #
+    # imageAB = to_diminish_2(imageAB, deg * deg)
+    # imageABCD = stitcher.stitch([imageAB, imageCD])
+    # cv2.imshow('Pano ABCD', imageABCD)
+
+    cv2.waitKey(0)

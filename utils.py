@@ -4,8 +4,11 @@ import numpy as np
 
 from transform import *
 
-def load_image(_img, to_be_domed = False, to_be_fisheye = False, to_be_expanded = False, to_be_diminished = False):
+def load_image(_img, to_be_domed = False, to_be_fisheye = False, to_be_expanded = False, to_be_diminished = False,
+               to_be_diminished_2 = False):
     img = imutils.resize(cv2.imread(_img, -1), height=400)
+    img = np.array(img)
+    img[img == 0] = 1
 
     if img.shape[2] == 3:
         img1 = np.full((img.shape[0], img.shape[1], 4), 255, dtype='uint8')
@@ -23,5 +26,8 @@ def load_image(_img, to_be_domed = False, to_be_fisheye = False, to_be_expanded 
 
     if to_be_diminished:
         img = to_diminish(img, 1.6)
+
+    if to_be_diminished_2:
+        img = to_diminish_2(img, 0.7)
 
     return img

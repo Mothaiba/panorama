@@ -129,7 +129,7 @@ def stitch_images(img1, keypoints1, img2, keypoints2, matches):
 
 if __name__=='__main__':
 
-    _imageDirectory = '/Users/tungphung/Documents/images8/'
+    _imageDirectory = '/Users/tungphung/Documents/images9/'
     _imageList = [f for f in listdir(_imageDirectory)]
     _images = [join(_imageDirectory, f) for f in _imageList \
                if isfile(join(_imageDirectory, f)) and not f.startswith('.')]
@@ -144,7 +144,7 @@ if __name__=='__main__':
 
     img1 = load_image(_images[0], to_be_fisheye=False, to_be_domed=False, to_be_expanded=False)
 
-    for i in range(1, len(_images), 1):
+    for i in range(1, len(_images), 5):
         img2 = load_image(_images[i], to_be_fisheye=False, to_be_domed=False, to_be_expanded=False)
 
         # Extract keypoints and descriptors
