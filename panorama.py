@@ -13,45 +13,111 @@ class Stitcher:
     def __init__(self):
         # determine if we are using OpenCV v3.X
         self.isv3 = imutils.is_cv3()
+        self.reinforce_rows = 300
+        self.meaningful_threshold = 0.7
 
     def stitch(self, images, ratio=0.75, reprojThresh=4.0, showMatches=False):
-        # unpack the images, then detect keypoints and extract
-        # local invariant descriptors from them
-        (imageB, imageA) = images
-        (kpsA, featuresA) = self.detectAndDescribe(imageA)
-        (kpsB, featuresB) = self.detectAndDescribe(imageB)
 
-        # match features between the two images
-        M = self.matchKeypoints(kpsA, kpsB,
-                                featuresA, featuresB, ratio, reprojThresh)
+        # unpack the images
+        (image_left, image_right) = images
 
-        # if the match is None, then there aren't enough matched
-        # keypoints to create a Panorama
-        if M is None:
-            return None
+        ite_max = 5
+        suffice_threshold = 0.1 * image_left.shape[0]
 
-        # otherwise, apply a perspective warp to stitch the images
-        # together
-        (matches, H, status) = M
+        deg_max = 0.9
+        deg_min = 0.6
+        for ite in range(ite_max):
+            deg = (deg_min + deg_max) / 2
 
-        right_image_wrapped = cv2.warpPerspective(imageA, H,
-                                     (imageA.shape[1] + imageB.shape[1] + 500, int(imageA.shape[0] + 100)),
-                                     borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+            imageB = np.zeros((image_left.shape[0] + self.reinforce_rows * 2, image_left.shape[1], 4), dtype='uint8')
+            imageB[self.reinforce_rows:(self.reinforce_rows + image_left.shape[0]), :, :] = image_left
+            imageB = to_diminish_2(imageB, deg) # can optimize
 
-        # paste the left image to the right one
-        result = self.paste(imageB, right_image_wrapped)
+            imageA = np.copy(image_right) # can optimize
 
-        # trim some columns
-        result = self.trimSurplusCols(result)
+            # detect keypoints and extract
+            # local invariant descriptors from them
+            (kpsA, featuresA) = self.detectAndDescribe(imageA)
+            (kpsB, featuresB) = self.detectAndDescribe(imageB)
+
+            # match features between the two images
+            M = self.matchKeypoints(kpsA, kpsB,
+                                    featuresA, featuresB, ratio, reprojThresh)
+
+            # if the match is None, then there aren't enough matched
+            # keypoints to create a Panorama
+            if M is None:
+                continue
+
+            # otherwise, apply a perspective warp to stitch the images
+            # together
+            (matches, H, status) = M
+
+            image_A_wrapped = cv2.warpPerspective(imageA, H,
+                                         (imageA.shape[1] + imageB.shape[1], imageB.shape[0] + 300),
+                                         borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+
+            (upper_row, lower_row) = self.findBound(image_A_wrapped)
+            suffice_index = (lower_row - upper_row) - image_left.shape[0]
+
+            # print "upper_row = {}, lower_row = {}, suffice_index = {}".format(upper_row, lower_row, suffice_index)
+            # cv2.imshow('imageB', imageB)
+            # cv2.imshow('image_A_wrapped', image_A_wrapped)
+            # cv2.waitKey(0)
+
+            if ite == ite_max - 1 or abs(suffice_index) < suffice_threshold:
+
+                print 'abs(suffice_index) = {}'.format(suffice_index)
+
+                # paste the left image to the right one
+                result = self.paste(imageB, image_A_wrapped)
+                # cv2.imshow('image after pasted', result)
+                # cv2.waitKey(0)
+
+                # trim some rows
+                result = result[min(upper_row, self.reinforce_rows):max(lower_row, self.reinforce_rows + image_left.shape[0]),:,:]
+                # cv2.imshow('image after trimmed Rows', result)
+                # cv2.waitKey(0)
+
+                # trim some columns
+                result = self.trimSurplusCols(result, minimum_col_index=imageB.shape[1])
+                # cv2.imshow('image after trimmed Cols', result)
+                # cv2.waitKey(0)
+
+                break
+
+            if suffice_index < suffice_threshold:
+                deg_min = deg
+            else:
+                deg_max = deg
 
         return result
+
+    def findBound(self, img):
+        rows, cols = img.shape[:2]
+
+        zeros = np.zeros(cols, dtype='uint8')
+
+        # print np.sum(img[0, :, 0]), len(img[0, :, 0])
+        for i in range(rows):
+            if np.array_equal(img[i, :, 0], zeros) == False:
+                upper_rows = i
+                break
+
+        for i in range(rows - 1, -1, -1):
+            if np.array_equal(img[i, :, 0], zeros) == False:
+                lower_rows = i
+                break
+        return (upper_rows, lower_rows)
 
     def paste(self, left_img, right_img):
         # make the left image fade gradually on the right side
         fade_min = left_img.shape[1] - int(left_img.shape[1] * .2)  # % rightmost of left img will fade gradually
         fade_length = left_img.shape[1] - fade_min
 
-        print 'fade_min, fade_length = ', fade_min, fade_length
+        # print 'fade_min, fade_length = ', fade_min, fade_length
+        # print 'left image size:', left_img.shape[:2]
+        # print 'right image size:', right_img.shape[:2]
 
         for j in range(left_img.shape[1]):
 
@@ -66,31 +132,29 @@ class Stitcher:
 
         return right_img
 
-    def trimSurplusCols(self, img):
-        meaningful_threshold = 0.5
+    # def trimSurplusRows(self, img, _upper, _lower):
+    #     upper = min(_upper, self.reinforce_rows)
+    #     lower = max(_lower, self.reinforce_rows + imageB.shape[0])
+    #
+    #     img = img[upper : (lower + 1), :, :]
+    #
+    #     return img
 
-        for j in range(imageB.shape[1], img.shape[1]):
-            from_row = img.shape[0]
-            for i in range(img.shape[0]):
-                if img[i, j, 0] != 0:
-                    from_row = i
-                    break
+    # trim cols must be done after trimmed rows
+    def trimSurplusCols(self, img, minimum_col_index):
 
-            to_row = 0
-            for i in range(img.shape[0] - 1, -1, -1):
-                if img[i, j, 0] != 0:
-                    to_row = i
-                    break
+        for j in range(img.shape[1] - 1, minimum_col_index - 1, -1):
+            meaningful = np.sum(img[:, j, 0] != 0) * 1. / img.shape[0]
 
-            if 1. * (to_row - from_row) / img.shape[0] < meaningful_threshold:
-                print from_row, ',', to_row
-                print 'length:', img.shape[1], ',', 'cut-off to', j, 'because only', str(1. * (to_row - from_row) / img.shape[0]), 'percent meaningful'
+            if  meaningful > self.meaningful_threshold:
+                print 'length:', img.shape[1], ',', 'cut-off to', j, 'because meaningfulness reaches', meaningful, 'percent'
                 img = img[:, :j, :]
                 break
 
         return img
 
     def detectAndDescribe(self, image):
+        # print image.shape
         # convert the image to grayscale
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
@@ -294,23 +358,21 @@ if __name__ == '__main__':
     imageC = load_image(_images[2])
     imageD = load_image(_images[3])
 
-    imageA = to_diminish_2(imageA, deg)
+    # imageA = to_diminish_2(imageA, deg)
     imageAB = stitcher.stitch([imageA, imageB])
-    cv2.imshow('Pano AB', imageAB)
+    # cv2.imshow('Pano AB', imageAB)
 
     imageAB = fill_rec(imageAB, imageAB.shape[0])
-
     cv2.imshow('Pano AB after fill', imageAB)
 
-    imageC = to_diminish_2(imageC, deg)
     imageCD = stitcher.stitch([imageC, imageD])
-    cv2.imshow('Pano CD', imageCD)
+    # cv2.imshow('Pano CD', imageCD)
 
     imageCD = fill_rec(imageCD, imageCD.shape[0])
 
-    cv2.imshow('Pano CD after fill', imageCD)
+    # cv2.imshow('Pano CD after fill', imageCD)
 
-    imageAB = to_diminish_2(imageAB, 0.8)
+    # imageAB = to_diminish_2(imageAB, 0.8)
     imageABCD = stitcher.stitch([imageAB, imageCD])
     cv2.imshow('Pano ABCD', imageABCD)
 

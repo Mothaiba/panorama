@@ -163,6 +163,22 @@ def to_diminish_2(img, deg) :
 #
 #     # return img_output
 
+def make_blur(img):
+    matrix = np.array([ [1,1,1,1,1],
+                        [1,2,2,2,1],
+                        [1,2,0,2,1],
+                        [1,2,2,2,1],
+                        [1,1,1,1,1]]) / 32.0
+    return cv2.filter2D(img, -1, matrix)
+
+def make_sharpen(img):
+    matrix = np.array([ [-1,-1,-1,-1,-1],
+                        [-1,2,2,2,-1],
+                        [-1,2,8,2,-1],
+                        [-1,2,2,2,-1],
+                        [-1,-1,-1,-1,-1]]) / 8.0
+    return cv2.filter2D(img, -1, matrix)
+
 def fill_rec(img, final_rows):
     rows, cols = img.shape[:2]
 
@@ -196,7 +212,6 @@ def fill_rec(img, final_rows):
     output_img = output_img[:, :to_col, :]
 
     return output_img
-
 
 
 if __name__ == '__main__':
