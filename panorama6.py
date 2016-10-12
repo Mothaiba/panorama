@@ -1,3 +1,6 @@
+# a modification of panorama.py
+# using to_dome_2 instead of to_fish_eye
+
 # import the necessary packages
 import numpy as np
 import imutils
@@ -13,83 +16,105 @@ class Stitcher:
     def __init__(self):
         # determine if we are using OpenCV v3.X
         self.isv3 = imutils.is_cv3()
-        self.reinforce_rows = 300
+        self.reinforce_rows = 100
         self.meaningful_threshold = 0.7
+        self.idenMatrix = np.array([[1, 0], [0, 1]])
+        self.homo = None
+        self.err_threshold = 0.00001
 
-    def stitch(self, images, ratio=0.75, reprojThresh=4.0, showMatches=False):
+    def stitch(self, images, ratio=0.5, reprojThresh=4.0, deg=0.6):
+
+        def getError(image_l, image_r, deg_, showImages = False, showH = False):
+            image_l = to_fish_eye(image_l, deg_)
+            image_r = to_fish_eye(image_r, deg_)
+
+            if showImages:
+                cv2.imshow('image_l', image_l)
+                cv2.imshow('image_r', image_r)
+                cv2.waitKey(0)
+
+            (kps_r, features_r) = self.detectAndDescribe(image_r)
+            (kps_l, features_l) = self.detectAndDescribe(image_l)
+
+            # match features between the two images
+            M = self.matchKeypoints(kps_r, kps_l,
+                                    features_r, features_l, ratio, reprojThresh)
+
+            if M is None:
+                return 9**9
+
+            (matches, H, status) = M
+            H = np.array(H)
+            # print H
+            # error = np.sum(np.absolute(H[:2,:2] - self.idenMatrix))
+            error = abs(H[1, 0])
+
+            if showH:
+                return (error, H)
+            else:
+                return error
 
         # unpack the images
         (image_left, image_right) = images
 
-        ite_max = 5
-        suffice_threshold = 0.1 * image_left.shape[0]
+        ite_max = 10
+        # suffice_threshold = 0.05 * image_left.shape[0]
 
-        deg_max = 0.9
-        deg_min = 0.6
+        step = deg / 2.
+        last_error = 999 # infinite
+        coolest_error = (999, 0, None) # infinite
+
         for ite in range(ite_max):
-            deg = (deg_min + deg_max) / 2
 
-            imageB = np.zeros((image_left.shape[0] + self.reinforce_rows * 2, image_left.shape[1], 4), dtype='uint8')
-            imageB[self.reinforce_rows:(self.reinforce_rows + image_left.shape[0]), :, :] = image_left
-            imageB = to_diminish_2(imageB, deg) # can optimize
+            print 'deg = {}'.format(deg)
 
-            imageA = np.copy(image_right) # can optimize
+            inc_deg = deg + step
+            dec_deg = deg - step
 
-            # detect keypoints and extract
-            # local invariant descriptors from them
-            (kpsA, featuresA) = self.detectAndDescribe(imageA)
-            (kpsB, featuresB) = self.detectAndDescribe(imageB)
+            (now_error, self.homo) = getError(image_left, image_right, deg, showImages=False, showH=True)
+            if now_error < coolest_error[0]:
+                coolest_error = (now_error, deg, self.homo)
 
-            # match features between the two images
-            M = self.matchKeypoints(kpsA, kpsB,
-                                    featuresA, featuresB, ratio, reprojThresh)
+            inc_error = getError(image_left, image_right, inc_deg)
+            dec_error = getError(image_left, image_right, dec_deg)
 
-            # if the match is None, then there aren't enough matched
-            # keypoints to create a Panorama
-            if M is None:
-                continue
+            if inc_error < dec_error:
+                deg = deg + step / 2.
+            else:
+                deg = deg - step / 2.
 
-            # otherwise, apply a perspective warp to stitch the images
-            # together
-            (matches, H, status) = M
+            step = step / 2.
 
-            image_A_wrapped = cv2.warpPerspective(imageA, H,
-                                         (imageA.shape[1] + imageB.shape[1], imageB.shape[0] + 300),
-                                         borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+            # print 'current error = {}, dec error = {}, inc error = {}'.format(now_error, dec_error, inc_error)
 
-            (upper_row, lower_row) = self.findBound(image_A_wrapped)
-            suffice_index = (lower_row - upper_row) - image_left.shape[0]
-
-            # print "upper_row = {}, lower_row = {}, suffice_index = {}".format(upper_row, lower_row, suffice_index)
-            # cv2.imshow('imageB', imageB)
-            # cv2.imshow('image_A_wrapped', image_A_wrapped)
-            # cv2.waitKey(0)
-
-            if ite == ite_max - 1 or abs(suffice_index) < suffice_threshold:
-
-                print 'abs(suffice_index) = {}'.format(suffice_index)
-
-                # paste the left image to the right one
-                result = self.paste(imageB, image_A_wrapped)
-                # cv2.imshow('image after pasted', result)
-                # cv2.waitKey(0)
-
-                # trim some rows
-                result = result[min(upper_row, self.reinforce_rows):max(lower_row, self.reinforce_rows + image_left.shape[0]),:,:]
-                # cv2.imshow('image after trimmed Rows', result)
-                # cv2.waitKey(0)
-
-                # trim some columns
-                result = self.trimSurplusCols(result, minimum_col_index=imageB.shape[1])
-                # cv2.imshow('image after trimmed Cols', result)
-                # cv2.waitKey(0)
-
+            if abs(now_error - last_error) < self.err_threshold:
+                # print 'now_error = {}, break after {} iterations'.format(now_error, ite + 1)
                 break
 
-            if suffice_index < suffice_threshold:
-                deg_min = deg
-            else:
-                deg_max = deg
+            last_error = now_error
+
+        print 'Finally, use deg = {}'.format(coolest_error[1])
+        deg = coolest_error[1]
+        self.homo = coolest_error[2]
+        if self.homo[0, 2] <= 0:
+            return image_left if image_left.shape[1] > image_right.shape[1] else image_right
+
+
+        image_left = to_fish_eye(image_left, deg)
+        image_right = to_fish_eye(image_right, deg)
+
+        image_right_wrapped = cv2.warpPerspective(image_right, self.homo,
+                                         (image_left.shape[1] + int(self.homo[0, 2]),
+                                          image_left.shape[0]),
+                                          borderMode=cv2.BORDER_CONSTANT, borderValue=0)
+        print 'homo: ', self.homo
+        cv2.imshow('left', image_left)
+        cv2.imshow('right', image_right_wrapped)
+
+        result = self.paste(image_left, image_right_wrapped, moved=self.homo[0, 2])
+
+        cv2.imshow('result', result)
+        cv2.waitKey(0)
 
         return result
 
@@ -110,14 +135,9 @@ class Stitcher:
                 break
         return (upper_rows, lower_rows)
 
-    def paste(self, left_img, right_img):
-        # make the left image fade gradually on the right side
-        fade_min = left_img.shape[1] - int(left_img.shape[1] * .2)  # % rightmost of left img will fade gradually
+    def paste(self, left_img, right_img, moved):
+        fade_min = moved  # rightmost of left img will fade gradually
         fade_length = left_img.shape[1] - fade_min
-
-        # print 'fade_min, fade_length = ', fade_min, fade_length
-        # print 'left image size:', left_img.shape[:2]
-        # print 'right image size:', right_img.shape[:2]
 
         for j in range(left_img.shape[1]):
 
@@ -205,11 +225,11 @@ class Stitcher:
             (H, status) = cv2.findHomography(ptsA, ptsB, cv2.RANSAC,
                                              reprojThresh)
 
-            # return the matches along with the homography matrix
+            # return the matches along with the homograpy matrix
             # and status of each matched point
             return (matches, H, status)
 
-        # otherwise, no homography could be computed
+        # otherwise, no homograpy could be computed
         return None
 
     def drawMatches(self, imageA, imageB, kpsA, kpsB, matches, status):
@@ -261,7 +281,7 @@ if __name__ == '__main__':
     # cv2.imshow("Result", result)
     # cv2.waitKey(0)
 
-    _imageDirectory = '/Users/tungphung/Documents/images5/'
+    _imageDirectory = '/Users/tungphung/Documents/images15/'
     _imageList = [f for f in listdir(_imageDirectory)]
     _images = [join(_imageDirectory, f) for f in _imageList \
                if isfile(join(_imageDirectory, f)) and not f.startswith('.')]
@@ -362,22 +382,22 @@ if __name__ == '__main__':
     imageAB = stitcher.stitch([imageA, imageB])
     cv2.imshow('Pano AB', imageAB)
 
-    imageAB = fill_rec(imageAB, imageAB.shape[0])
+    # imageAB = fill_rec(imageAB, imageAB.shape[0])
     cv2.imshow('Pano AB after fill', imageAB)
 
     imageCD = stitcher.stitch([imageC, imageD])
     # cv2.imshow('Pano CD', imageCD)
 
-    imageCD = fill_rec(imageCD, imageCD.shape[0])
+    # imageCD = fill_rec(imageCD, imageCD.shape[0])
 
     # cv2.imshow('Pano CD after fill', imageCD)
 
     # imageAB = to_diminish_2(imageAB, 0.8)
-    imageABCD = stitcher.stitch([imageAB, imageCD])
+    imageABCD = stitcher.stitch([imageAB, imageCD], deg=0.3)
     cv2.imshow('Pano ABCD', imageABCD)
 
-    imageABCD = fill_rec(imageABCD, imageABCD.shape[0])
+    # imageABCD = fill_rec(imageABCD, imageABCD.shape[0])
 
-    cv2.imshow('Pano ABCD after fill', imageABCD)
+    # cv2.imshow('Pano ABCD after fill', imageABCD)
 
     cv2.waitKey(0)

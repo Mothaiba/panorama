@@ -3,6 +3,8 @@ import cv2
 import imutils
 
 # import utils.load_image
+import math
+
 
 def to_dome(img, _b):
     rows, cols = img.shape[:2]
@@ -22,6 +24,7 @@ def to_dome(img, _b):
         dome[(dome_rows - add_height - rows) : (dome_rows - add_height), j, :3] = img[:, j, :3]
 
     return dome
+
 
 def to_dome_2(img, _major, _minor):
     rows, cols = img.shape[:2]
@@ -54,20 +57,25 @@ def to_dome_2(img, _major, _minor):
             dome[i, j, :] = img[int((i - min_row_in_consider) / ratio), j, :]
     return dome
 
+
 def to_fish_eye(img, _b):
     rows, cols = img.shape[:2]
+    # a = int(cols / 3 * 2)
     a = cols / 2
-    b = int(_b * a)
+    b = int(_b * a / 2)
+    centre = int(cols/2)
 
-    print 'rows, cols = ' + str(rows), ', ', str(cols)
-    print 'a, b = ' + str(a), ', ', str(b)
+    # print 'rows, cols = ' + str(rows), ', ', str(cols)
+    # print 'a, b = ' + str(a), ', ', str(b)
 
     dome_rows = rows + b + b
     dome = np.zeros((dome_rows, cols, 4), dtype='uint8')
     dome[:, :, 3] = 255
-    diff_centre = lambda x : x - a if x > a else a - x
+    diff_centre = lambda x : x - centre if x > centre else centre - x
 
     for j in range (cols):
+        # if ((1. - (1. * diff_centre(j) / a) ** 2) * (b ** 2)) < 0:
+        #     print j, diff_centre(j), ((1. - (1. * diff_centre(j) / a) ** 2) * (b ** 2))
         add_height = int(((1. - (1. * diff_centre(j) / a) ** 2) * (b ** 2)) ** 0.5)
         ratio = 1 + (add_height * 2. / rows)
 
@@ -75,7 +83,29 @@ def to_fish_eye(img, _b):
         for i in range(b - add_height, rows + b + add_height):
             dome[i, j, :] = img[int((i - min_row_in_consider) / ratio), j, :]
 
+    # cv2.imshow('dome', dome)
+    # cv2.waitKey(0)
     return dome
+
+
+def to_spherical(img, fcl):
+    rows, cols = img.shape[:2]
+    print 'rows, cols:', rows, cols
+
+    x_mid = int(cols / 2)
+    y_mid = int(rows / 2)
+    s = fcl
+    result = np.zeros((rows, cols, 4), dtype='uint8')
+
+    for y in range(rows):
+        y_mirror = y - y_mid
+        for x in range(cols):
+            x_mirror = x - x_mid
+            x_ = int(s * math.atan2(x_mirror, fcl))
+            y_ = int(s * math.atan2(y_mirror, math.sqrt(x_mirror * x_mirror + fcl * fcl)))
+            result[y_ + y_mid, x_ + x_mid] = img[y, x]
+
+    return result
 
 # if __name__ == '__main__':
 #     # tmp_img = imutils.resize(cv2.imread('Panorama_lab_3_pics.png', -1), height=400)
