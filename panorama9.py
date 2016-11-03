@@ -24,8 +24,8 @@ class Stitcher:
 
         def getError(self, deg1_, deg2_):
 
-            self.l_kps = self.ellipse_calibration(self.image_left.shape[:2], self.l_ori_kps, deg1_)
-            self.r_kps = self.ellipse_calibration(self.image_right.shape[:2], self.r_ori_kps, deg2_)
+            self.l_kps = self.ellipse_transform(self.image_left.shape[:2], self.l_ori_kps, deg1_)
+            self.r_kps = self.ellipse_transform(self.image_right.shape[:2], self.r_ori_kps, deg2_)
             # print 'Calibration done'
 
             self.ptsA = np.float32([self.l_kps[i] for (i, _) in self.matches])

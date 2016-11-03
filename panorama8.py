@@ -30,8 +30,8 @@ class Stitcher:
             # print '--len:', len(self.l_kps), len(self.r_kps)
             # print 'matches:', self.matches
 
-            self.l_kps = self.ellipse_calibration(self.image_left.shape[:2], self.l_ori_kps, deg_)
-            self.r_kps = self.ellipse_calibration(self.image_right.shape[:2], self.r_ori_kps, deg_)
+            self.l_kps = self.ellipse_transform(self.image_left.shape[:2], self.l_ori_kps, deg_)
+            self.r_kps = self.ellipse_transform(self.image_right.shape[:2], self.r_ori_kps, deg_)
             # print 'Calibration done'
             self.ptsA = np.float32([self.l_kps[i] for (i, _) in self.matches])
             self.ptsB = np.float32([self.r_kps[i] for (_, i) in self.matches])

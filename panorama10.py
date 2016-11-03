@@ -32,8 +32,8 @@ class Stitcher:
 
         def getError(self, f1, f2):
 
-            self.l_kps = self.spherical_calibration(self.image_left.shape[:2], self.l_ori_kps, f1)
-            self.r_kps = self.spherical_calibration(self.image_right.shape[:2], self.r_ori_kps, f2)
+            self.l_kps = self.spherical_transform(self.image_left.shape[:2], self.l_ori_kps, f1)
+            self.r_kps = self.spherical_transform(self.image_right.shape[:2], self.r_ori_kps, f2)
             # print 'Calibration done'
 
             # k1 = self.drawKps(self.image_left, self.l_ori_kps)

@@ -60,13 +60,13 @@ class Stitcher:
 
             if f1 is not None:
                 # print 'f1:', f1
-                self.l_kps = self.spherical_calibration(self.image_left.shape[:2], self.l_ori_kps, f1)
+                self.l_kps = self.spherical_transform(self.image_left.shape[:2], self.l_ori_kps, f1)
             self.l_pts = np.float32([self.l_kps[i] for (i, _) in self.matches])
 
             # print 'f2:', f2
-            self.r_kps = self.spherical_calibration(self.image_right.shape[:2], self.r_ori_kps, f2)
+            self.r_kps = self.spherical_transform(self.image_right.shape[:2], self.r_ori_kps, f2)
             self.r_pts = np.float32([self.r_kps[i] for (_, i) in self.matches])
-            # print 'Calibration done'
+            # print 'Transformation done'
 
             # k1 = self.drawKps(self.image_left, self.l_ori_kps)
             # print len(self.l_ori_kps)
@@ -181,6 +181,7 @@ class Stitcher:
         self.homo[0, 1] = self.homo[1, 0] = self.homo[2, 0] = self.homo[2, 1] = 0
 
         '''bend the image by their fcl'''
+        '''fcl is abbreviation of focal length'''
         if firstTime:
             image_left = to_spherical(self.image_left, self.best_f[0])
         else:
@@ -214,8 +215,8 @@ class Stitcher:
         '''Return result, and the params we will use when stitch more image'''
         return result, self.r_kps, self.r_features, self.best_f[1]
 
-    '''Calibrate (bend) an image, by using ellipse equation'''
-    def ellipse_calibration(self, shape, kps, deg):
+    '''Bend an image, by using ellipse equation'''
+    def ellipse_transform(self, shape, kps, deg):
         (rows, cols) = shape
         a = int(cols / 2)
         b = a * deg
@@ -236,9 +237,9 @@ class Stitcher:
 
         return new_kps
 
-    '''Calibrate (bend) an image, to spherical view
+    '''Bend an image, to spherical view
     (kind of like a fisheye effect)'''
-    def spherical_calibration(self, shape, kps, fcl):
+    def spherical_transform(self, shape, kps, fcl):
         rows, cols = shape
         x_mid = int(cols / 2)
         y_mid = int(rows / 2)
@@ -259,6 +260,7 @@ class Stitcher:
         return new_kps
 
     '''Some blending options'''
+    '''We only need to use 1 of the following paste functions'''
     def paste(self, left_img, right_img, moved):
         fade_min = int(moved)
         fade_length = left_img.shape[1] - fade_min
@@ -516,7 +518,7 @@ Some optimizations (or modifications) can be done later:
         but stitch pairs of images which have the most number of matches first
     Use Laplacian blender for blending
     Add reinforce rows so that no pixel of image will be lost
-    Try cylindrical calibration
+    Try cylindrical Transformation
     Get focal length by extracting information of ELIXIR of image
     Use another descriptor (SIFT, SURF, ORB, ...)
 '''
